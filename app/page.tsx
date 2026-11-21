@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   Sprout,
@@ -10,7 +10,11 @@ import {
   MapPin,
   Search,
   Palmtree,
+  LogOut,
 } from "lucide-react";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
+import { db, auth } from "./lib/firebase";
 import {
   Client,
   InventoryItem,
@@ -19,6 +23,7 @@ import {
   TreasuryTransaction,
   Worker,
 } from "./types";
+import AuthScreen from "./components/AuthScreen";
 import DashboardOverview from "./components/DashboardOverview";
 import ClientsTab from "./components/ClientsTab";
 import { LaborTab, TreasuryTab } from "./components/LaborAndTreasury";
@@ -40,6 +45,9 @@ const INITIAL_WORKERS: Worker[] = [
 ];
 
 export default function BashayerDashboard() {
+  const [user, setUser] = useState<User | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
+
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedNursery, setSelectedNursery] = useState<NurseryId>("main");
   const [searchQuery, setSearchQuery] = useState("");
@@ -51,26 +59,81 @@ export default function BashayerDashboard() {
   const [workers, setWorkers] = useState<Worker[]>(INITIAL_WORKERS);
   const [transactions, setTransactions] = useState<TreasuryTransaction[]>([]);
 
+  const lastSyncedRef = useRef<string>("");
+
+  // 0. مراقبة حالة تسجيل الدخول
   useEffect(() => {
-    const saved = localStorage.getItem("bashayer_erp_v1");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setInventory(parsed.inventory || INITIAL_INVENTORY);
-      setClients(parsed.clients || INITIAL_CLIENTS);
-      setShipments(parsed.shipments || []);
-      setWorkers(parsed.workers || INITIAL_WORKERS);
-      setTransactions(parsed.transactions || []);
-    }
-    setLoaded(true);
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthChecking(false);
+      if (!currentUser) {
+        setLoaded(false);
+      }
+    });
+    return () => unsubscribeAuth();
   }, []);
 
+  // 1. قراءة ومزامنة البيانات لحظياً من Firebase Firestore
   useEffect(() => {
-    if (!loaded) return;
-    localStorage.setItem(
-      "bashayer_erp_v1",
-      JSON.stringify({ inventory, clients, shipments, workers, transactions })
+    if (!user) return;
+
+    const docRef = doc(db, "bashayer_erp", "main_data");
+
+    const unsubscribe = onSnapshot(
+      docRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          const payload = {
+            inventory: data.inventory || INITIAL_INVENTORY,
+            clients: data.clients || INITIAL_CLIENTS,
+            shipments: data.shipments || [],
+            workers: data.workers || INITIAL_WORKERS,
+            transactions: data.transactions || [],
+          };
+          lastSyncedRef.current = JSON.stringify(payload);
+          setInventory(payload.inventory);
+          setClients(payload.clients);
+          setShipments(payload.shipments);
+          setWorkers(payload.workers);
+          setTransactions(payload.transactions);
+        } else {
+          const initialPayload = {
+            inventory: INITIAL_INVENTORY,
+            clients: INITIAL_CLIENTS,
+            shipments: [],
+            workers: INITIAL_WORKERS,
+            transactions: [],
+          };
+          lastSyncedRef.current = JSON.stringify(initialPayload);
+          setDoc(docRef, initialPayload).catch((err) =>
+            console.error("خطأ في تهيئة البيانات على Firebase:", err)
+          );
+        }
+        setLoaded(true);
+      },
+      (error) => {
+        console.error("خطأ في الاتصال بـ Firebase:", error);
+        setLoaded(true);
+      }
     );
-  }, [inventory, clients, shipments, workers, transactions, loaded]);
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // 2. حفظ أي تغيير تلقائياً على Firebase Firestore
+  useEffect(() => {
+    if (!loaded || !user) return;
+    const currentPayload = { inventory, clients, shipments, workers, transactions };
+    const serialized = JSON.stringify(currentPayload);
+
+    if (serialized === lastSyncedRef.current) return;
+    lastSyncedRef.current = serialized;
+
+    setDoc(doc(db, "bashayer_erp", "main_data"), currentPayload).catch((err) =>
+      console.error("خطأ في الحفظ على Firebase:", err)
+    );
+  }, [inventory, clients, shipments, workers, transactions, loaded, user]);
 
   // إضافة صنف للمخزون
   const [newVariety, setNewVariety] = useState("");
@@ -80,19 +143,28 @@ export default function BashayerDashboard() {
   const handleAddStock = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newVariety || !newQty) return;
-    setInventory([
-      ...inventory,
-      {
-        id: Date.now(),
-        nursery: selectedNursery,
-        variety: newVariety,
-        type: newType,
-        available: Number(newQty),
-        issued: 0,
-      },
-    ]);
+    const newItem: InventoryItem = {
+      id: Date.now(),
+      nursery: selectedNursery,
+      variety: newVariety,
+      type: newType,
+      available: Number(newQty),
+      issued: 0,
+    };
+    setInventory(inventory.concat([newItem]));
     setNewVariety("");
     setNewQty("");
+  };
+
+  // إضافة عميل جديد
+  const handleAddClient = (c: Omit<Client, "id">) => {
+    const newClient: Client = {
+      id: Date.now(),
+      name: c.name,
+      phone: c.phone,
+      address: c.address,
+    };
+    setClients(clients.concat([newClient]));
   };
 
   // تحميل شحنة لعميل + خصم من المخزون
@@ -103,24 +175,36 @@ export default function BashayerDashboard() {
       return false;
     }
 
-    setInventory(
-      inventory.map((item) =>
-        item.id === data.inventoryId
-          ? {
-              ...item,
-              available: item.available - data.quantity,
-              issued: item.issued + data.quantity,
-            }
-          : item
-      )
-    );
+    const updatedInventory: InventoryItem[] = inventory.map((item) => {
+      if (item.id === data.inventoryId) {
+        return {
+          id: item.id,
+          nursery: item.nursery,
+          variety: item.variety,
+          type: item.type,
+          available: item.available - data.quantity,
+          issued: item.issued + data.quantity,
+        };
+      }
+      return item;
+    });
+
+    setInventory(updatedInventory);
 
     const newShipment: Shipment = {
-      ...data,
       id: Date.now(),
+      date: data.date,
+      clientId: data.clientId,
+      nursery: data.nursery,
+      inventoryId: data.inventoryId,
+      variety: data.variety,
+      type: data.type,
+      quantity: data.quantity,
+      unitPrice: data.unitPrice,
       total: data.quantity * data.unitPrice,
+      notes: data.notes,
     };
-    setShipments([newShipment, ...shipments]);
+    setShipments([newShipment].concat(shipments));
     alert("تم تأكيد التحميل وخصم الكمية من رصيد المشتل وإضافتها لمستخلص العميل.");
     return true;
   };
@@ -128,33 +212,60 @@ export default function BashayerDashboard() {
   // استلام دفعة من عميل + إضافتها لوارد الخزينة
   const handleReceivePayment = (clientId: number, amount: number, notes: string) => {
     const client = clients.find((c) => c.id === clientId);
+    const noteText = notes ? " (" + notes + ")" : "";
     const tx: TreasuryTransaction = {
       id: Date.now(),
       date: new Date().toISOString().split("T")[0],
       type: "income",
-      category: `دفعة عميل #${clientId}`,
-      amount,
-      description: `تحصيل دفعة من العميل: ${client?.name || ""} ${notes ? `(${notes})` : ""}`,
+      category: "دفعة عميل #" + clientId,
+      amount: amount,
+      description: "تحصيل دفعة من العميل: " + (client?.name || "") + noteText,
       nursery: selectedNursery,
     };
-    setTransactions([tx, ...transactions]);
+    setTransactions([tx].concat(transactions));
+  };
+
+  // إضافة عامل جديد
+  const handleAddWorker = (w: Omit<Worker, "id">) => {
+    const newWorker: Worker = {
+      id: Date.now(),
+      name: w.name,
+      role: w.role,
+      wageType: w.wageType,
+      rate: w.rate,
+    };
+    setWorkers(workers.concat([newWorker]));
   };
 
   // صرف مستحقات عامل + خصمها من صادر الخزينة
   const handlePayWorker = (worker: Worker, units: number, nursery: NurseryId) => {
     const total = worker.rate * units;
-    const unitLabel = worker.wageType === "daily" ? `${units} يوم` : `${units} شهر`;
+    const unitLabel = worker.wageType === "daily" ? units + " يوم" : units + " شهر";
     const tx: TreasuryTransaction = {
       id: Date.now(),
       date: new Date().toISOString().split("T")[0],
       type: "expense",
       category: "أجور عمالة",
       amount: total,
-      description: `صرف مستحقات (${worker.name}) - ${unitLabel}`,
-      nursery,
+      description: "صرف مستحقات (" + worker.name + ") - " + unitLabel,
+      nursery: nursery,
     };
-    setTransactions([tx, ...transactions]);
-    alert(`تم صرف ${total.toLocaleString()} ج.م وتسجيلها في صادر الخزينة.`);
+    setTransactions([tx].concat(transactions));
+    alert("تم صرف " + total.toLocaleString("en-US") + " ج.م وتسجيلها في صادر الخزينة.");
+  };
+
+  // تسجيل حركة خزينة يدوية
+  const handleAddManualTransaction = (tx: Omit<TreasuryTransaction, "id" | "date">) => {
+    const newTx: TreasuryTransaction = {
+      id: Date.now(),
+      date: new Date().toISOString().split("T")[0],
+      type: tx.type,
+      category: tx.category,
+      amount: tx.amount,
+      description: tx.description,
+      nursery: tx.nursery,
+    };
+    setTransactions([newTx].concat(transactions));
   };
 
   const currentInventory = inventory
@@ -162,27 +273,38 @@ export default function BashayerDashboard() {
     .filter((item) => item.variety.includes(searchQuery));
 
   const menuItems = [
-    { id: "dashboard", label: "لوحة التحكم", icon: LayoutDashboard, group: "عام" },
-    { id: "inventory", label: "المخزون والتحميل", icon: Sprout, group: "إدارة المشاتل" },
-    { id: "clients", label: "العملاء والمستخلصات", icon: Users, group: "إدارة المشاتل" },
-    { id: "labor", label: "إدارة العمالة", icon: HardHat, group: "التشغيل والمالية" },
-    { id: "treasury", label: "الخزينة (وارد وصادر)", icon: Wallet, group: "التشغيل والمالية" },
+    { id: "dashboard", label: "لوحة التحكم", icon: LayoutDashboard },
+    { id: "inventory", label: "المخزون والتحميل", icon: Sprout },
+    { id: "clients", label: "العملاء والمستخلصات", icon: Users },
+    { id: "labor", label: "إدارة العمالة", icon: HardHat },
+    { id: "treasury", label: "الخزينة (وارد وصادر)", icon: Wallet },
   ];
+
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-[#0d211a] flex items-center justify-center text-emerald-200 font-bold">
+        جاري التحقق من الحساب...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
 
   if (!loaded) {
     return (
       <div className="min-h-screen bg-[#0d211a] flex items-center justify-center text-emerald-200 font-bold">
-        جاري تحميل نظام بشاير الواحة...
+        جاري تحميل ومزامنة بيانات بشاير الواحة...
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[#0d211a] text-stone-800 flex flex-col md:flex-row p-2 md:p-3 gap-3">
-      {/* القائمة الجانبية الداكنة (نفس ستايل Admin Dashboard V7) */}
+      {/* القائمة الجانبية الداكنة */}
       <aside className="w-full md:w-64 text-emerald-100 flex flex-col justify-between px-3 py-4 print:hidden shrink-0">
         <div>
-          {/* لوجو النظام */}
           <div className="flex items-center gap-3 px-3 pb-6 border-b border-emerald-900/60">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
               <Palmtree size={22} />
@@ -193,7 +315,6 @@ export default function BashayerDashboard() {
             </div>
           </div>
 
-          {/* روابط الأقسام */}
           <nav className="mt-6 space-y-1.5">
             {menuItems.map((item) => {
               const Icon = item.icon;
@@ -202,11 +323,12 @@ export default function BashayerDashboard() {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                    isActive
+                  className={
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all " +
+                    (isActive
                       ? "bg-[#234e3f] text-white shadow-sm border border-emerald-500/30"
-                      : "text-emerald-200/75 hover:bg-[#153328] hover:text-white"
-                  }`}
+                      : "text-emerald-200/75 hover:bg-[#153328] hover:text-white")
+                  }
                 >
                   <Icon size={18} className={isActive ? "text-emerald-300" : "text-emerald-400/70"} />
                   <span>{item.label}</span>
@@ -216,24 +338,40 @@ export default function BashayerDashboard() {
           </nav>
         </div>
 
-        {/* بطاقة سفلية في القائمة الجانبية (مثل Catalogue في الصورة) */}
-        <div className="hidden md:block bg-[#153328] border border-emerald-800/60 rounded-2xl p-4 mt-6">
-          <p className="text-xs text-emerald-300 font-bold">إجمالي مخزون المشاتل</p>
-          <p className="text-xl font-extrabold text-white mt-1">
-            {inventory.reduce((a, b) => a + b.available, 0).toLocaleString("en-US")}{" "}
-            <span className="text-xs font-normal text-emerald-300">فسيلة</span>
-          </p>
-          <div className="w-full bg-emerald-950 h-1.5 rounded-full mt-3 overflow-hidden">
-            <div className="bg-emerald-400 h-full w-3/4 rounded-full" />
+        {/* ملخص المخزون + بيانات الحساب وتسجيل الخروج */}
+        <div className="mt-6 space-y-3">
+          <div className="hidden md:block bg-[#153328] border border-emerald-800/60 rounded-2xl p-4">
+            <p className="text-xs text-emerald-300 font-bold">إجمالي مخزون المشاتل</p>
+            <p className="text-xl font-extrabold text-white mt-1">
+              {inventory.reduce((a, b) => a + b.available, 0).toLocaleString("en-US")}{" "}
+              <span className="text-xs font-normal text-emerald-300">فسيلة</span>
+            </p>
+            <div className="w-full bg-emerald-950 h-1.5 rounded-full mt-3 overflow-hidden">
+              <div className="bg-emerald-400 h-full w-3/4 rounded-full" />
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-emerald-900/60 flex items-center justify-between gap-2 px-2">
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-white truncate">
+                {user.displayName || "مستخدم بشاير"}
+              </p>
+              <p className="text-[11px] text-emerald-400/70 truncate">{user.email}</p>
+            </div>
+            <button
+              onClick={() => signOut(auth)}
+              title="تسجيل الخروج"
+              className="p-2 rounded-xl bg-red-500/15 hover:bg-red-500/30 text-red-300 transition cursor-pointer shrink-0"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
         </div>
       </aside>
 
-      {/* العمود الأيسر (الشريط العلوي الداكن + لوحة العمل الفاتحة ذات الحواف الدائرية) */}
+      {/* العمود الأيسر */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* الشريط العلوي (بحث + مُبدل المشتل) */}
         <header className="px-3 py-2.5 flex flex-wrap items-center justify-between gap-4 print:hidden">
-          {/* مربع بحث */}
           <div className="relative w-full sm:w-72">
             <Search
               size={16}
@@ -248,7 +386,6 @@ export default function BashayerDashboard() {
             />
           </div>
 
-          {/* أزرار التبديل بين المشتلين */}
           <div className="flex items-center gap-3">
             <span className="text-xs text-emerald-300/80 hidden sm:flex items-center gap-1 font-semibold">
               <MapPin size={14} /> المشتل النشط للعمليات:
@@ -256,21 +393,23 @@ export default function BashayerDashboard() {
             <div className="flex bg-[#153328] p-1 rounded-full border border-emerald-800/60">
               <button
                 onClick={() => setSelectedNursery("main")}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
-                  selectedNursery === "main"
+                className={
+                  "px-4 py-1.5 rounded-full text-xs font-bold transition " +
+                  (selectedNursery === "main"
                     ? "bg-emerald-500 text-emerald-950 shadow"
-                    : "text-emerald-200 hover:text-white"
-                }`}
+                    : "text-emerald-200 hover:text-white")
+                }
               >
                 المشتل الرئيسي
               </button>
               <button
                 onClick={() => setSelectedNursery("well")}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${
-                  selectedNursery === "well"
+                className={
+                  "px-4 py-1.5 rounded-full text-xs font-bold transition " +
+                  (selectedNursery === "well"
                     ? "bg-amber-400 text-stone-950 shadow"
-                    : "text-emerald-200 hover:text-white"
-                }`}
+                    : "text-emerald-200 hover:text-white")
+                }
               >
                 مشتل على البير
               </button>
@@ -278,9 +417,8 @@ export default function BashayerDashboard() {
           </div>
         </header>
 
-        {/* مساحة العمل الرئيسية الفاتحة بحواف دائرية كبيرة (نفس الصورة) */}
+        {/* مساحة العمل الرئيسية */}
         <main className="flex-1 bg-[#f4f6f5] rounded-3xl p-5 md:p-7 shadow-xl overflow-y-auto">
-          {/* 1. تبويب لوحة التحكم (يظهر ملخص كل شيء مع بعض) */}
           {activeTab === "dashboard" && (
             <DashboardOverview
               inventory={inventory}
@@ -292,7 +430,6 @@ export default function BashayerDashboard() {
             />
           )}
 
-          {/* 2. تبويب المخزون والتحميل (مستقل بنفسه) */}
           {activeTab === "inventory" && (
             <div className="space-y-6">
               <div>
@@ -358,11 +495,12 @@ export default function BashayerDashboard() {
                           <td className="p-4 font-bold text-stone-800">{item.variety}</td>
                           <td className="p-4">
                             <span
-                              className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                item.type === "بنت جورة"
+                              className={
+                                "px-3 py-1 rounded-full text-xs font-bold " +
+                                (item.type === "بنت جورة"
                                   ? "bg-emerald-100 text-emerald-800"
-                                  : "bg-amber-100 text-amber-800"
-                              }`}
+                                  : "bg-amber-100 text-amber-800")
+                              }
                             >
                               {item.type}
                             </span>
@@ -378,7 +516,6 @@ export default function BashayerDashboard() {
             </div>
           )}
 
-          {/* 3. تبويب العملاء والمستخلصات (مستقل بنفسه) */}
           {activeTab === "clients" && (
             <div className="space-y-6">
               <div>
@@ -393,14 +530,13 @@ export default function BashayerDashboard() {
                 clients={clients}
                 shipments={shipments}
                 transactions={transactions}
-                onAddClient={(c) => setClients([...clients, { ...c, id: Date.now() }])}
+                onAddClient={handleAddClient}
                 onCreateShipment={handleCreateShipment}
                 onReceivePayment={handleReceivePayment}
               />
             </div>
           )}
 
-          {/* 4. تبويب العمالة (مستقل بنفسه) */}
           {activeTab === "labor" && (
             <div className="space-y-6">
               <div>
@@ -412,13 +548,12 @@ export default function BashayerDashboard() {
               <LaborTab
                 selectedNursery={selectedNursery}
                 workers={workers}
-                onAddWorker={(w) => setWorkers([...workers, { ...w, id: Date.now() }])}
+                onAddWorker={handleAddWorker}
                 onPayWorker={handlePayWorker}
               />
             </div>
           )}
 
-          {/* 5. تبويب الخزينة (مستقل بنفسه) */}
           {activeTab === "treasury" && (
             <div className="space-y-6">
               <div>
@@ -429,12 +564,7 @@ export default function BashayerDashboard() {
               </div>
               <TreasuryTab
                 transactions={transactions}
-                onAddManualTransaction={(tx) =>
-                  setTransactions([
-                    { ...tx, id: Date.now(), date: new Date().toISOString().split("T")[0] },
-                    ...transactions,
-                  ])
-                }
+                onAddManualTransaction={handleAddManualTransaction}
               />
             </div>
           )}
