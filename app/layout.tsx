@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
+import PwaRegister from "./components/PwaRegister";
 
 const cairo = Cairo({
   subsets: ["arabic"],
@@ -10,6 +11,15 @@ const cairo = Cairo({
 export const metadata: Metadata = {
   title: "بشاير الواحة | إدارة مشاتل النخيل",
   description: "نظام إدارة المخزون والعملاء والعمالة والخزينة لمشاتل بشاير الواحة",
+  appleWebApp: {
+    capable: true,
+    title: "بشاير الواحة",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0d211a",
 };
 
 export default function RootLayout({
@@ -19,7 +29,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl">
-      <body className={`${cairo.className} bg-stone-50 text-stone-800 antialiased`}>
+      <body className={cairo.className + " bg-stone-50 text-stone-800 antialiased"}>
+        <PwaRegister />
         {children}
       </body>
     </html>
