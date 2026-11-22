@@ -272,11 +272,11 @@ export default function BashayerDashboard() {
     .filter((item) => item.variety.includes(searchQuery));
 
   const menuItems = [
-    { id: "dashboard", label: "لوحة التحكم", icon: LayoutDashboard },
-    { id: "inventory", label: "المخزون والتحميل", icon: Sprout },
-    { id: "clients", label: "العملاء والمستخلصات", icon: Users },
-    { id: "labor", label: "إدارة العمالة", icon: HardHat },
-    { id: "treasury", label: "الخزينة (وارد وصادر)", icon: Wallet },
+    { id: "dashboard", label: "لوحة التحكم", shortLabel: "الرئيسية", icon: LayoutDashboard },
+    { id: "inventory", label: "المخزون والتحميل", shortLabel: "المخزون", icon: Sprout },
+    { id: "clients", label: "العملاء والمستخلصات", shortLabel: "العملاء", icon: Users },
+    { id: "labor", label: "إدارة العمالة", shortLabel: "العمالة", icon: HardHat },
+    { id: "treasury", label: "الخزينة (وارد وصادر)", shortLabel: "الخزينة", icon: Wallet },
   ];
 
   if (authChecking) {
@@ -310,11 +310,10 @@ export default function BashayerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d211a] text-stone-800 flex flex-col md:flex-row p-2 md:p-3 gap-3">
-      {/* القائمة الجانبية الداكنة */}
-      <aside className="w-full md:w-64 text-emerald-100 flex flex-col justify-between px-3 py-4 print:hidden shrink-0">
+    <div className="min-h-screen bg-[#0d211a] text-stone-800 flex flex-col md:flex-row md:p-3 md:gap-3">
+      {/* 1. القائمة الجانبية الداكنة — للكمبيوتر والتابلت فقط */}
+      <aside className="hidden md:flex md:w-64 text-emerald-100 flex-col justify-between px-3 py-4 print:hidden shrink-0">
         <div>
-          {/* اللوجو الرسمي في القائمة الجانبية */}
           <div className="flex items-center gap-3 px-2 pb-6 border-b border-emerald-900/60">
             <div className="w-12 h-12 rounded-xl bg-white p-1 shadow-xs overflow-hidden shrink-0 flex items-center justify-center">
               <img
@@ -342,7 +341,7 @@ export default function BashayerDashboard() {
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
                   className={
-                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all " +
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer " +
                     (isActive
                       ? "bg-[#234e3f] text-white shadow-sm border border-emerald-500/30"
                       : "text-emerald-200/75 hover:bg-[#153328] hover:text-white")
@@ -356,9 +355,9 @@ export default function BashayerDashboard() {
           </nav>
         </div>
 
-        {/* ملخص المخزون + بيانات الحساب وتسجيل الخروج */}
+        {/* ملخص المخزون + بيانات الحساب */}
         <div className="mt-6 space-y-3">
-          <div className="hidden md:block bg-[#153328] border border-emerald-800/60 rounded-2xl p-4">
+          <div className="bg-[#153328] border border-emerald-800/60 rounded-2xl p-4">
             <p className="text-xs text-emerald-300 font-bold">إجمالي مخزون المشاتل</p>
             <p className="text-xl font-extrabold text-white mt-1">
               {inventory.reduce((a, b) => a + b.available, 0).toLocaleString("en-US")}{" "}
@@ -387,10 +386,69 @@ export default function BashayerDashboard() {
         </div>
       </aside>
 
-      {/* العمود الأيسر */}
+      {/* 2. الشريط العلوي المخصص للموبايل فقط */}
+      <div className="md:hidden sticky top-0 z-30 bg-[#0d211a]/95 backdrop-blur-md px-4 pt-3 pb-3 space-y-2.5 border-b border-emerald-900/50 print:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-white p-0.5 shadow-xs overflow-hidden shrink-0 flex items-center justify-center">
+              <img
+                src="/logo.png"
+                alt="بشاير الواحة"
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-sm font-extrabold text-white leading-tight truncate">
+                بشاير الواحة
+              </h1>
+              <p className="text-[10px] text-emerald-300/80 truncate">
+                {inventory.reduce((a, b) => a + b.available, 0).toLocaleString("en-US")} فسيلة متاحة
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => signOut(auth)}
+            title="تسجيل الخروج"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-red-500/15 active:bg-red-500/30 text-red-300 text-xs font-bold shrink-0"
+          >
+            <LogOut size={14} />
+            <span>خروج</span>
+          </button>
+        </div>
+
+        {/* مُبدل المشتل النشط على الموبايل بعرض كامل */}
+        <div className="grid grid-cols-2 bg-[#153328] p-1 rounded-xl border border-emerald-800/60">
+          <button
+            onClick={() => setSelectedNursery("main")}
+            className={
+              "py-2 rounded-lg text-xs font-extrabold transition " +
+              (selectedNursery === "main"
+                ? "bg-emerald-500 text-emerald-950 shadow-xs"
+                : "text-emerald-200")
+            }
+          >
+            المشتل الرئيسي
+          </button>
+          <button
+            onClick={() => setSelectedNursery("well")}
+            className={
+              "py-2 rounded-lg text-xs font-extrabold transition " +
+              (selectedNursery === "well"
+                ? "bg-amber-400 text-stone-950 shadow-xs"
+                : "text-emerald-200")
+            }
+          >
+            مشتل على البير
+          </button>
+        </div>
+      </div>
+
+      {/* 3. العمود الرئيسي */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="px-3 py-2.5 flex flex-wrap items-center justify-between gap-4 print:hidden">
-          <div className="relative w-full sm:w-72">
+        {/* الشريط العلوي للكمبيوتر فقط */}
+        <header className="hidden md:flex px-3 py-2.5 flex-wrap items-center justify-between gap-4 print:hidden">
+          <div className="relative w-72">
             <Search
               size={16}
               className="absolute right-3.5 top-1/2 -translate-y-1/2 text-emerald-300/60"
@@ -405,14 +463,14 @@ export default function BashayerDashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-xs text-emerald-300/80 hidden sm:flex items-center gap-1 font-semibold">
+            <span className="text-xs text-emerald-300/80 flex items-center gap-1 font-semibold">
               <MapPin size={14} /> المشتل النشط للعمليات:
             </span>
             <div className="flex bg-[#153328] p-1 rounded-full border border-emerald-800/60">
               <button
                 onClick={() => setSelectedNursery("main")}
                 className={
-                  "px-4 py-1.5 rounded-full text-xs font-bold transition " +
+                  "px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer " +
                   (selectedNursery === "main"
                     ? "bg-emerald-500 text-emerald-950 shadow"
                     : "text-emerald-200 hover:text-white")
@@ -423,7 +481,7 @@ export default function BashayerDashboard() {
               <button
                 onClick={() => setSelectedNursery("well")}
                 className={
-                  "px-4 py-1.5 rounded-full text-xs font-bold transition " +
+                  "px-4 py-1.5 rounded-full text-xs font-bold transition cursor-pointer " +
                   (selectedNursery === "well"
                     ? "bg-amber-400 text-stone-950 shadow"
                     : "text-emerald-200 hover:text-white")
@@ -436,7 +494,7 @@ export default function BashayerDashboard() {
         </header>
 
         {/* مساحة العمل الرئيسية */}
-        <main className="flex-1 bg-[#f4f6f5] rounded-3xl p-5 md:p-7 shadow-xl overflow-y-auto">
+        <main className="flex-1 bg-[#f4f6f5] rounded-t-3xl md:rounded-3xl p-4 pb-24 md:p-7 md:pb-7 shadow-xl overflow-y-auto">
           {activeTab === "dashboard" && (
             <DashboardOverview
               inventory={inventory}
@@ -449,33 +507,53 @@ export default function BashayerDashboard() {
           )}
 
           {activeTab === "inventory" && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
-                <h1 className="text-2xl font-extrabold text-stone-900">
+                <h1 className="text-xl md:text-2xl font-extrabold text-stone-900">
                   إدارة المخزون - {selectedNursery === "main" ? "المشتل الرئيسي" : "مشتل على البير"}
                 </h1>
                 <p className="text-xs text-stone-500 mt-1">
-                  إضافة أصناف جديدة ومتابعة الرصيد المتاح والصادر (بنت جورة / مجدوع) بشكل مستقل لكل مشتل
+                  إضافة أصناف جديدة ومتابعة الرصيد المتاح والصادر لكل مشتل
                 </p>
               </div>
 
-              <div className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden">
-                <div className="p-5 border-b border-stone-200 flex flex-wrap justify-between items-center gap-4">
-                  <h2 className="text-base font-bold text-stone-800">إضافة صنف جديد للمخزون</h2>
+              {/* بحث الأصناف على الموبايل */}
+              <div className="md:hidden relative">
+                <Search
+                  size={16}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400"
+                />
+                <input
+                  type="text"
+                  placeholder="ابحث باسم الصنف..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-white border border-stone-200 rounded-2xl pr-10 pl-4 py-2.5 text-sm focus:outline-none focus:border-emerald-700"
+                />
+              </div>
 
-                  <form onSubmit={handleAddStock} className="flex flex-wrap gap-2">
+              <div className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden">
+                <div className="p-4 md:p-5 border-b border-stone-200 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3">
+                  <h2 className="text-sm md:text-base font-bold text-stone-800">
+                    إضافة صنف جديد للمخزون
+                  </h2>
+
+                  <form
+                    onSubmit={handleAddStock}
+                    className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2"
+                  >
                     <input
                       type="text"
                       placeholder="اسم الصنف (مثلاً: برحي)"
                       value={newVariety}
                       onChange={(e) => setNewVariety(e.target.value)}
-                      className="border border-stone-300 rounded-xl px-3.5 py-2 text-sm"
+                      className="col-span-2 sm:w-auto border border-stone-300 rounded-xl px-3.5 py-2.5 text-sm"
                       required
                     />
                     <select
                       value={newType}
                       onChange={(e) => setNewType(e.target.value as "بنت جورة" | "مجدوع")}
-                      className="border border-stone-300 rounded-xl px-3.5 py-2 text-sm bg-white"
+                      className="border border-stone-300 rounded-xl px-3 py-2.5 text-sm bg-white"
                     >
                       <option value="بنت جورة">بنت جورة</option>
                       <option value="مجدوع">مجدوع</option>
@@ -485,19 +563,67 @@ export default function BashayerDashboard() {
                       placeholder="العدد"
                       value={newQty}
                       onChange={(e) => setNewQty(e.target.value)}
-                      className="border border-stone-300 rounded-xl px-3.5 py-2 text-sm w-28"
+                      className="border border-stone-300 rounded-xl px-3.5 py-2.5 text-sm sm:w-28"
                       required
                     />
                     <button
                       type="submit"
-                      className="bg-[#122b22] hover:bg-[#1b4033] text-white px-5 py-2 rounded-xl text-sm font-bold flex items-center gap-1.5"
+                      className="col-span-2 sm:col-span-1 bg-[#122b22] hover:bg-[#1b4033] active:scale-[0.98] text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
                     >
                       <Plus size={16} /> إضافة للمخزون
                     </button>
                   </form>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* عرض البطاقات الاحترافي للموبايل */}
+                <div className="md:hidden divide-y divide-stone-100">
+                  {currentInventory.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-stone-400 font-semibold">
+                      لا توجد أصناف مطابقة في هذا المشتل
+                    </div>
+                  ) : (
+                    currentInventory.map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-4 flex items-center justify-between gap-3"
+                      >
+                        <div className="space-y-1.5 min-w-0">
+                          <p className="font-extrabold text-stone-900 text-base truncate">
+                            {item.variety}
+                          </p>
+                          <span
+                            className={
+                              "inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold " +
+                              (item.type === "بنت جورة"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-amber-100 text-amber-800")
+                            }
+                          >
+                            {item.type}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 shrink-0 text-center">
+                          <div>
+                            <p className="text-[10px] text-stone-400 font-bold">متاح</p>
+                            <p className="text-lg font-black text-emerald-700">
+                              {item.available}
+                            </p>
+                          </div>
+                          <div className="h-8 w-px bg-stone-200" />
+                          <div>
+                            <p className="text-[10px] text-stone-400 font-bold">صادر</p>
+                            <p className="text-base font-bold text-stone-600">
+                              {item.issued}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* عرض الجدول للكمبيوتر */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-right border-collapse">
                     <thead>
                       <tr className="bg-stone-50 text-stone-600 text-xs uppercase border-b border-stone-200">
@@ -535,9 +661,11 @@ export default function BashayerDashboard() {
           )}
 
           {activeTab === "clients" && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
-                <h1 className="text-2xl font-extrabold text-stone-900">العملاء والمستخلصات</h1>
+                <h1 className="text-xl md:text-2xl font-extrabold text-stone-900">
+                  العملاء والمستخلصات
+                </h1>
                 <p className="text-xs text-stone-500 mt-1">
                   إصدار أذونات التحميل من المشتل النشط، متابعة حسابات العملاء، وطباعة المستخلصات
                 </p>
@@ -556,9 +684,11 @@ export default function BashayerDashboard() {
           )}
 
           {activeTab === "labor" && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
-                <h1 className="text-2xl font-extrabold text-stone-900">إدارة العمالة والأجور</h1>
+                <h1 className="text-xl md:text-2xl font-extrabold text-stone-900">
+                  إدارة العمالة والأجور
+                </h1>
                 <p className="text-xs text-stone-500 mt-1">
                   تسجيل العمالة باليومية والعمالة الثابتة وصرف المستحقات مباشرة من الخزينة
                 </p>
@@ -573,9 +703,11 @@ export default function BashayerDashboard() {
           )}
 
           {activeTab === "treasury" && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
-                <h1 className="text-2xl font-extrabold text-stone-900">الخزينة (وارد وصادر)</h1>
+                <h1 className="text-xl md:text-2xl font-extrabold text-stone-900">
+                  الخزينة (وارد وصادر)
+                </h1>
                 <p className="text-xs text-stone-500 mt-1">
                   متابعة التدفقات النقدية، تحصيلات العملاء، ومصروفات التشغيل والعمالة
                 </p>
@@ -588,6 +720,36 @@ export default function BashayerDashboard() {
           )}
         </main>
       </div>
+
+      {/* 4. شريط التنقل السفلي الاحترافي للموبايل فقط */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#0d211a]/95 backdrop-blur-lg border-t border-emerald-900/70 px-1.5 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] print:hidden">
+        <div className="grid grid-cols-5 gap-1">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={
+                  "flex flex-col items-center justify-center gap-1 py-1.5 rounded-2xl transition-all " +
+                  (isActive
+                    ? "bg-[#234e3f] text-white"
+                    : "text-emerald-200/65 active:bg-[#153328]")
+                }
+              >
+                <Icon
+                  size={20}
+                  className={isActive ? "text-emerald-300" : "text-emerald-300/60"}
+                />
+                <span className="text-[10px] font-bold leading-none">
+                  {item.shortLabel}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }
