@@ -25,10 +25,12 @@ import AuthScreen from "./components/AuthScreen";
 import DashboardOverview from "./components/DashboardOverview";
 import InventoryTab from "./components/InventoryTab";
 import ClientsTab from "./components/ClientsTab";
-import { LaborTab, TreasuryTab } from "./components/LaborAndTreasury";
+import TreasuryTab from "./components/TreasuryTab";
+import { LaborTab } from "./components/LaborAndTreasury";
 
 const INITIAL_VARIETIES = ["برحي", "مجدول", "سيوي (صعيدي)", "سكري"];
 const INITIAL_TYPES = ["بنت جورة", "مجدوع"];
+const INITIAL_TREASURY_STAFF = ["مصطفي موسي", "محمد حمادة"];
 
 const INITIAL_INVENTORY: InventoryItem[] = [
   { id: 1, nursery: "main", variety: "برحي", type: "بنت جورة", available: 150, issued: 0 },
@@ -57,6 +59,7 @@ export default function BashayerDashboard() {
 
   const [varieties, setVarieties] = useState<string[]>(INITIAL_VARIETIES);
   const [types, setTypes] = useState<string[]>(INITIAL_TYPES);
+  const [treasuryStaff, setTreasuryStaff] = useState<string[]>(INITIAL_TREASURY_STAFF);
   const [inventory, setInventory] = useState<InventoryItem[]>(INITIAL_INVENTORY);
   const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -91,6 +94,7 @@ export default function BashayerDashboard() {
           const payload = {
             varieties: data.varieties || INITIAL_VARIETIES,
             types: data.types || INITIAL_TYPES,
+            treasuryStaff: data.treasuryStaff || INITIAL_TREASURY_STAFF,
             inventory: data.inventory || INITIAL_INVENTORY,
             clients: data.clients || INITIAL_CLIENTS,
             shipments: data.shipments || [],
@@ -100,6 +104,7 @@ export default function BashayerDashboard() {
           lastSyncedRef.current = JSON.stringify(payload);
           setVarieties(payload.varieties);
           setTypes(payload.types);
+          setTreasuryStaff(payload.treasuryStaff);
           setInventory(payload.inventory);
           setClients(payload.clients);
           setShipments(payload.shipments);
@@ -109,6 +114,7 @@ export default function BashayerDashboard() {
           const initialPayload = {
             varieties: INITIAL_VARIETIES,
             types: INITIAL_TYPES,
+            treasuryStaff: INITIAL_TREASURY_STAFF,
             inventory: INITIAL_INVENTORY,
             clients: INITIAL_CLIENTS,
             shipments: [],
@@ -137,6 +143,7 @@ export default function BashayerDashboard() {
     const currentPayload = {
       varieties,
       types,
+      treasuryStaff,
       inventory,
       clients,
       shipments,
@@ -151,7 +158,7 @@ export default function BashayerDashboard() {
     setDoc(doc(db, "bashayer_erp", "main_data"), currentPayload).catch((err) =>
       console.error("خطأ في الحفظ على Firebase:", err)
     );
-  }, [varieties, types, inventory, clients, shipments, workers, transactions, loaded, user]);
+  }, [varieties, types, treasuryStaff, inventory, clients, shipments, workers, transactions, loaded, user]);
 
   // إضافة صنف جديد للقائمة
   const handleAddVariety = (v: string) => {
@@ -164,6 +171,13 @@ export default function BashayerDashboard() {
   const handleAddType = (t: string) => {
     if (!types.includes(t)) {
       setTypes(types.concat([t]));
+    }
+  };
+
+  // إضافة مسؤول جديد لقائمة الخزينة
+  const handleAddTreasuryStaff = (name: string) => {
+    if (!treasuryStaff.includes(name)) {
+      setTreasuryStaff(treasuryStaff.concat([name]));
     }
   };
 
@@ -292,26 +306,28 @@ export default function BashayerDashboard() {
     alert("تم صرف " + total.toLocaleString("en-US") + " ج.م وتسجيلها في صادر الخزينة.");
   };
 
-  // تسجيل حركة خزينة يدوية
-  const handleAddManualTransaction = (tx: Omit<TreasuryTransaction, "id" | "date">) => {
+  // تسجيل حركة خزينة يدوية بالتاريخ واسم المسؤول
+  const handleAddManualTransaction = (tx: Omit<TreasuryTransaction, "id">) => {
     const newTx: TreasuryTransaction = {
       id: Date.now(),
-      date: new Date().toISOString().split("T")[0],
+      date: tx.date || new Date().toISOString().split("T")[0],
       type: tx.type,
       category: tx.category,
       amount: tx.amount,
       description: tx.description,
       nursery: tx.nursery,
+      handledBy: tx.handledBy,
     };
     setTransactions([newTx].concat(transactions));
   };
 
+  // ترتيب التبويبات: الخزينة مباشرة بعد لوحة التحكم
   const menuItems = [
     { id: "dashboard", label: "لوحة التحكم", shortLabel: "الرئيسية", icon: LayoutDashboard },
+    { id: "treasury", label: "الخزينة (وارد وصادر)", shortLabel: "الخزينة", icon: Wallet },
     { id: "inventory", label: "المخزون والتحميل", shortLabel: "المخزون", icon: Sprout },
     { id: "clients", label: "العملاء والمستخلصات", shortLabel: "العملاء", icon: Users },
     { id: "labor", label: "إدارة العمالة", shortLabel: "العمالة", icon: HardHat },
-    { id: "treasury", label: "الخزينة (وارد وصادر)", shortLabel: "الخزينة", icon: Wallet },
   ];
 
   if (authChecking) {
@@ -537,6 +553,26 @@ export default function BashayerDashboard() {
             />
           )}
 
+          {activeTab === "treasury" && (
+            <div className="space-y-5">
+              <div>
+                <h1 className="text-xl md:text-2xl font-extrabold text-stone-900">
+                  الخزينة (وارد وصادر)
+                </h1>
+                <p className="text-xs text-stone-500 mt-1">
+                  متابعة التدفقات النقدية، تحديد القائم بالصرف أو التحصيل، وتسجيل الحركات بالتاريخ
+                </p>
+              </div>
+              <TreasuryTab
+                selectedNursery={selectedNursery}
+                transactions={transactions}
+                staffList={treasuryStaff}
+                onAddStaff={handleAddTreasuryStaff}
+                onAddManualTransaction={handleAddManualTransaction}
+              />
+            </div>
+          )}
+
           {activeTab === "inventory" && (
             <InventoryTab
               selectedNursery={selectedNursery}
@@ -591,23 +627,6 @@ export default function BashayerDashboard() {
                 workers={workers}
                 onAddWorker={handleAddWorker}
                 onPayWorker={handlePayWorker}
-              />
-            </div>
-          )}
-
-          {activeTab === "treasury" && (
-            <div className="space-y-5">
-              <div>
-                <h1 className="text-xl md:text-2xl font-extrabold text-stone-900">
-                  الخزينة (وارد وصادر)
-                </h1>
-                <p className="text-xs text-stone-500 mt-1">
-                  متابعة التدفقات النقدية، تحصيلات العملاء، ومصروفات التشغيل والعمالة
-                </p>
-              </div>
-              <TreasuryTab
-                transactions={transactions}
-                onAddManualTransaction={handleAddManualTransaction}
               />
             </div>
           )}

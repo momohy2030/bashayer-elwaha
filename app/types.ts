@@ -42,9 +42,10 @@ export interface Worker {
 export interface TreasuryTransaction {
   id: number;
   date: string;
-  type: "income" | "expense"; // وارد أو صادر
+  type: "income" | "expense";
   category: string;
   amount: number;
   description: string;
-  nursery: NurseryId | "general";
+  nursery: NurseryId;
+  handledBy?: string;
 }
