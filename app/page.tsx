@@ -9,7 +9,6 @@ import {
   Plus,
   MapPin,
   Search,
-  Palmtree,
   LogOut,
 } from "lucide-react";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
@@ -282,8 +281,13 @@ export default function BashayerDashboard() {
 
   if (authChecking) {
     return (
-      <div className="min-h-screen bg-[#0d211a] flex items-center justify-center text-emerald-200 font-bold">
-        جاري التحقق من الحساب...
+      <div className="min-h-screen bg-[#0d211a] flex flex-col items-center justify-center gap-3 text-emerald-200 font-bold">
+        <img
+          src="/logo.png"
+          alt="بشاير الواحة"
+          className="w-20 h-20 rounded-2xl bg-white p-1.5 object-contain animate-pulse"
+        />
+        <span>جاري التحقق من الحساب...</span>
       </div>
     );
   }
@@ -294,8 +298,13 @@ export default function BashayerDashboard() {
 
   if (!loaded) {
     return (
-      <div className="min-h-screen bg-[#0d211a] flex items-center justify-center text-emerald-200 font-bold">
-        جاري تحميل ومزامنة بيانات بشاير الواحة...
+      <div className="min-h-screen bg-[#0d211a] flex flex-col items-center justify-center gap-3 text-emerald-200 font-bold">
+        <img
+          src="/logo.png"
+          alt="بشاير الواحة"
+          className="w-20 h-20 rounded-2xl bg-white p-1.5 object-contain animate-pulse"
+        />
+        <span>جاري تحميل ومزامنة بيانات بشاير الواحة...</span>
       </div>
     );
   }
@@ -305,13 +314,22 @@ export default function BashayerDashboard() {
       {/* القائمة الجانبية الداكنة */}
       <aside className="w-full md:w-64 text-emerald-100 flex flex-col justify-between px-3 py-4 print:hidden shrink-0">
         <div>
-          <div className="flex items-center gap-3 px-3 pb-6 border-b border-emerald-900/60">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
-              <Palmtree size={22} />
+          {/* اللوجو الرسمي في القائمة الجانبية */}
+          <div className="flex items-center gap-3 px-2 pb-6 border-b border-emerald-900/60">
+            <div className="w-12 h-12 rounded-xl bg-white p-1 shadow-xs overflow-hidden shrink-0 flex items-center justify-center">
+              <img
+                src="/logo.png"
+                alt="بشاير الواحة للإستثمار الزراعي"
+                className="w-full h-full object-contain"
+              />
             </div>
-            <div>
-              <h1 className="text-lg font-extrabold text-white tracking-wide">بشاير الواحة</h1>
-              <p className="text-[11px] text-emerald-400/80">إدارة مشاتل النخيل</p>
+            <div className="min-w-0">
+              <h1 className="text-base font-extrabold text-white tracking-wide truncate">
+                بشاير الواحة
+              </h1>
+              <p className="text-[11px] text-emerald-300/90 truncate">
+                للإستثمار الزراعي
+              </p>
             </div>
           </div>
 

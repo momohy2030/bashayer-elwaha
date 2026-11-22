@@ -7,7 +7,7 @@ import {
   updateProfile,
 } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
-import { Palmtree, Mail, Lock, User, Loader2, AlertCircle } from "lucide-react";
+import { Mail, Lock, User, Loader2, AlertCircle } from "lucide-react";
 
 export default function AuthScreen() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -17,7 +17,7 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // تسجيل الدخول أو إنشاء حساب بجوجل (جوجل بيعمل الاتنين تلقائياً)
+  // تسجيل الدخول أو إنشاء حساب بجوجل
   const handleGoogleAuth = async () => {
     setError("");
     setLoading(true);
@@ -70,13 +70,19 @@ export default function AuthScreen() {
   return (
     <div className="min-h-screen bg-[#0d211a] flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-[#f4f6f5] rounded-3xl shadow-2xl overflow-hidden border border-emerald-800/30">
-        {/* الهيدر العلوي */}
-        <div className="bg-[#122b22] px-6 py-7 text-center text-white">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300 mb-3">
-            <Palmtree size={30} />
+        {/* الهيدر العلوي باللوجو الرسمي */}
+        <div className="bg-white px-6 py-6 text-center border-b border-stone-200">
+          <div className="w-28 h-28 mx-auto rounded-2xl overflow-hidden shadow-xs border border-stone-100 mb-3 bg-white flex items-center justify-center">
+            <img
+              src="/logo.png"
+              alt="بشاير الواحة للإستثمار الزراعي"
+              className="w-full h-full object-contain"
+            />
           </div>
-          <h1 className="text-2xl font-extrabold tracking-wide">بشاير الواحة</h1>
-          <p className="text-xs text-emerald-300/80 mt-1">
+          <h1 className="text-xl font-extrabold text-[#122b22] tracking-wide">
+            بشاير الواحة للإستثمار الزراعي
+          </h1>
+          <p className="text-xs text-stone-500 mt-1">
             نظام إدارة مشاتل النخيل والمخزون والخزينة
           </p>
         </div>
@@ -90,11 +96,12 @@ export default function AuthScreen() {
                 setMode("signin");
                 setError("");
               }}
-              className={`py-2 rounded-lg text-sm font-bold transition ${
-                mode === "signin"
+              className={
+                "py-2 rounded-lg text-sm font-bold transition " +
+                (mode === "signin"
                   ? "bg-white text-[#122b22] shadow-xs"
-                  : "text-stone-600 hover:text-stone-900"
-              }`}
+                  : "text-stone-600 hover:text-stone-900")
+              }
             >
               تسجيل الدخول
             </button>
@@ -104,11 +111,12 @@ export default function AuthScreen() {
                 setMode("signup");
                 setError("");
               }}
-              className={`py-2 rounded-lg text-sm font-bold transition ${
-                mode === "signup"
+              className={
+                "py-2 rounded-lg text-sm font-bold transition " +
+                (mode === "signup"
                   ? "bg-white text-[#122b22] shadow-xs"
-                  : "text-stone-600 hover:text-stone-900"
-              }`}
+                  : "text-stone-600 hover:text-stone-900")
+              }
             >
               إنشاء حساب جديد
             </button>

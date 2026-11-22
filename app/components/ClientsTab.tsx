@@ -233,6 +233,33 @@ export default function ClientsTab({
               </button>
             </div>
           </div>
+          {/* ترويسة مستخلص العميل الرسمية للعرض والطباعة */}
+<div className="flex items-center justify-between border-b-2 border-[#122b22] pb-4 mb-5">
+  <div className="flex items-center gap-3">
+    <div className="w-16 h-16 rounded-xl bg-white border border-stone-200 p-1 flex items-center justify-center shrink-0">
+      <img
+        src="/logo.png"
+        alt="بشاير الواحة للإستثمار الزراعي"
+        className="w-full h-full object-contain"
+      />
+    </div>
+    <div>
+      <h2 className="text-xl font-extrabold text-[#122b22]">
+        بشاير الواحة للإستثمار الزراعي
+      </h2>
+      <p className="text-xs text-stone-500 font-semibold mt-0.5">
+        إدارة مشاتل النخيل — مستخلص حساب عميل رسمي
+      </p>
+    </div>
+  </div>
+
+  <div className="text-left text-xs text-stone-600 space-y-1">
+    <p className="font-bold text-stone-800">
+      تاريخ الإصدار: {new Date().toLocaleDateString("ar-EG")}
+    </p>
+    <p>مشتل: بشاير الواحة</p>
+  </div>
+</div>
 
           {/* ملخص مالي للعميل + تحصيل دفعة */}
           <div className="p-5 grid grid-cols-1 md:grid-cols-4 gap-4 border-b border-stone-200">
