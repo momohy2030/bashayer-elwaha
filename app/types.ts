@@ -38,7 +38,6 @@ export interface Worker {
   wageType: "daily" | "monthly"; // يومية أو ثابتة
   rate: number;
 }
-
 export interface TreasuryTransaction {
   id: number;
   date: string;
@@ -46,6 +45,6 @@ export interface TreasuryTransaction {
   category: string;
   amount: number;
   description: string;
-  nursery: NurseryId;
+  nursery: NurseryId | "general";
   handledBy?: string;
 }
