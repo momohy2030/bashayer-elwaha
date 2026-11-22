@@ -4,9 +4,10 @@ export interface InventoryItem {
   id: number;
   nursery: NurseryId;
   variety: string;
-  type: "بنت جورة" | "مجدوع";
+  type: string;
   available: number;
   issued: number;
+  date?: string;
 }
 
 export interface Client {
@@ -23,7 +24,7 @@ export interface Shipment {
   nursery: NurseryId;
   inventoryId: number;
   variety: string;
-  type: "بنت جورة" | "مجدوع";
+  type: string;
   quantity: number;
   unitPrice: number;
   total: number;

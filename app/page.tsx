@@ -6,7 +6,6 @@ import {
   Users,
   HardHat,
   Wallet,
-  Plus,
   MapPin,
   Search,
   LogOut,
@@ -24,8 +23,12 @@ import {
 } from "./types";
 import AuthScreen from "./components/AuthScreen";
 import DashboardOverview from "./components/DashboardOverview";
+import InventoryTab from "./components/InventoryTab";
 import ClientsTab from "./components/ClientsTab";
 import { LaborTab, TreasuryTab } from "./components/LaborAndTreasury";
+
+const INITIAL_VARIETIES = ["برحي", "مجدول", "سيوي (صعيدي)", "سكري"];
+const INITIAL_TYPES = ["بنت جورة", "مجدوع"];
 
 const INITIAL_INVENTORY: InventoryItem[] = [
   { id: 1, nursery: "main", variety: "برحي", type: "بنت جورة", available: 150, issued: 0 },
@@ -52,6 +55,8 @@ export default function BashayerDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loaded, setLoaded] = useState(false);
 
+  const [varieties, setVarieties] = useState<string[]>(INITIAL_VARIETIES);
+  const [types, setTypes] = useState<string[]>(INITIAL_TYPES);
   const [inventory, setInventory] = useState<InventoryItem[]>(INITIAL_INVENTORY);
   const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -84,6 +89,8 @@ export default function BashayerDashboard() {
         if (snapshot.exists()) {
           const data = snapshot.data();
           const payload = {
+            varieties: data.varieties || INITIAL_VARIETIES,
+            types: data.types || INITIAL_TYPES,
             inventory: data.inventory || INITIAL_INVENTORY,
             clients: data.clients || INITIAL_CLIENTS,
             shipments: data.shipments || [],
@@ -91,6 +98,8 @@ export default function BashayerDashboard() {
             transactions: data.transactions || [],
           };
           lastSyncedRef.current = JSON.stringify(payload);
+          setVarieties(payload.varieties);
+          setTypes(payload.types);
           setInventory(payload.inventory);
           setClients(payload.clients);
           setShipments(payload.shipments);
@@ -98,6 +107,8 @@ export default function BashayerDashboard() {
           setTransactions(payload.transactions);
         } else {
           const initialPayload = {
+            varieties: INITIAL_VARIETIES,
+            types: INITIAL_TYPES,
             inventory: INITIAL_INVENTORY,
             clients: INITIAL_CLIENTS,
             shipments: [],
@@ -123,7 +134,15 @@ export default function BashayerDashboard() {
   // 2. حفظ أي تغيير تلقائياً على Firebase Firestore
   useEffect(() => {
     if (!loaded || !user) return;
-    const currentPayload = { inventory, clients, shipments, workers, transactions };
+    const currentPayload = {
+      varieties,
+      types,
+      inventory,
+      clients,
+      shipments,
+      workers,
+      transactions,
+    };
     const serialized = JSON.stringify(currentPayload);
 
     if (serialized === lastSyncedRef.current) return;
@@ -132,27 +151,46 @@ export default function BashayerDashboard() {
     setDoc(doc(db, "bashayer_erp", "main_data"), currentPayload).catch((err) =>
       console.error("خطأ في الحفظ على Firebase:", err)
     );
-  }, [inventory, clients, shipments, workers, transactions, loaded, user]);
+  }, [varieties, types, inventory, clients, shipments, workers, transactions, loaded, user]);
 
-  // إضافة صنف للمخزون
-  const [newVariety, setNewVariety] = useState("");
-  const [newType, setNewType] = useState<"بنت جورة" | "مجدوع">("بنت جورة");
-  const [newQty, setNewQty] = useState("");
+  // إضافة صنف جديد للقائمة
+  const handleAddVariety = (v: string) => {
+    if (!varieties.includes(v)) {
+      setVarieties(varieties.concat([v]));
+    }
+  };
 
-  const handleAddStock = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newVariety || !newQty) return;
+  // إضافة نوع جديد للقائمة
+  const handleAddType = (t: string) => {
+    if (!types.includes(t)) {
+      setTypes(types.concat([t]));
+    }
+  };
+
+  // إضافة بند للمخزون
+  const handleAddInventoryItem = (item: Omit<InventoryItem, "id" | "issued">) => {
     const newItem: InventoryItem = {
       id: Date.now(),
-      nursery: selectedNursery,
-      variety: newVariety,
-      type: newType,
-      available: Number(newQty),
+      nursery: item.nursery,
+      variety: item.variety,
+      type: item.type,
+      available: item.available,
       issued: 0,
+      date: item.date,
     };
-    setInventory(inventory.concat([newItem]));
-    setNewVariety("");
-    setNewQty("");
+    setInventory([newItem].concat(inventory));
+  };
+
+  // تعديل بند في المخزون
+  const handleUpdateInventoryItem = (updated: InventoryItem) => {
+    setInventory(
+      inventory.map((item) => (item.id === updated.id ? updated : item))
+    );
+  };
+
+  // حذف بند من المخزون
+  const handleDeleteInventoryItem = (id: number) => {
+    setInventory(inventory.filter((item) => item.id !== id));
   };
 
   // إضافة عميل جديد
@@ -183,6 +221,7 @@ export default function BashayerDashboard() {
           type: item.type,
           available: item.available - data.quantity,
           issued: item.issued + data.quantity,
+          date: item.date,
         };
       }
       return item;
@@ -267,10 +306,6 @@ export default function BashayerDashboard() {
     setTransactions([newTx].concat(transactions));
   };
 
-  const currentInventory = inventory
-    .filter((item) => item.nursery === selectedNursery)
-    .filter((item) => item.variety.includes(searchQuery));
-
   const menuItems = [
     { id: "dashboard", label: "لوحة التحكم", shortLabel: "الرئيسية", icon: LayoutDashboard },
     { id: "inventory", label: "المخزون والتحميل", shortLabel: "المخزون", icon: Sprout },
@@ -311,7 +346,7 @@ export default function BashayerDashboard() {
 
   return (
     <div className="min-h-screen bg-[#0d211a] text-stone-800 flex flex-col md:flex-row md:p-3 md:gap-3">
-      {/* 1. القائمة الجانبية الداكنة — للكمبيوتر والتابلت فقط */}
+      {/* القائمة الجانبية للكمبيوتر والتابلت */}
       <aside className="hidden md:flex md:w-64 text-emerald-100 flex-col justify-between px-3 py-4 print:hidden shrink-0">
         <div>
           <div className="flex items-center gap-3 px-2 pb-6 border-b border-emerald-900/60">
@@ -355,7 +390,6 @@ export default function BashayerDashboard() {
           </nav>
         </div>
 
-        {/* ملخص المخزون + بيانات الحساب */}
         <div className="mt-6 space-y-3">
           <div className="bg-[#153328] border border-emerald-800/60 rounded-2xl p-4">
             <p className="text-xs text-emerald-300 font-bold">إجمالي مخزون المشاتل</p>
@@ -386,7 +420,7 @@ export default function BashayerDashboard() {
         </div>
       </aside>
 
-      {/* 2. الشريط العلوي المخصص للموبايل فقط */}
+      {/* الشريط العلوي للموبايل */}
       <div className="md:hidden sticky top-0 z-30 bg-[#0d211a]/95 backdrop-blur-md px-4 pt-3 pb-3 space-y-2.5 border-b border-emerald-900/50 print:hidden">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -417,7 +451,6 @@ export default function BashayerDashboard() {
           </button>
         </div>
 
-        {/* مُبدل المشتل النشط على الموبايل بعرض كامل */}
         <div className="grid grid-cols-2 bg-[#153328] p-1 rounded-xl border border-emerald-800/60">
           <button
             onClick={() => setSelectedNursery("main")}
@@ -444,9 +477,8 @@ export default function BashayerDashboard() {
         </div>
       </div>
 
-      {/* 3. العمود الرئيسي */}
+      {/* العمود الرئيسي */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* الشريط العلوي للكمبيوتر فقط */}
         <header className="hidden md:flex px-3 py-2.5 flex-wrap items-center justify-between gap-4 print:hidden">
           <div className="relative w-72">
             <Search
@@ -493,7 +525,6 @@ export default function BashayerDashboard() {
           </div>
         </header>
 
-        {/* مساحة العمل الرئيسية */}
         <main className="flex-1 bg-[#f4f6f5] rounded-t-3xl md:rounded-3xl p-4 pb-24 md:p-7 md:pb-7 shadow-xl overflow-y-auto">
           {activeTab === "dashboard" && (
             <DashboardOverview
@@ -507,157 +538,19 @@ export default function BashayerDashboard() {
           )}
 
           {activeTab === "inventory" && (
-            <div className="space-y-5">
-              <div>
-                <h1 className="text-xl md:text-2xl font-extrabold text-stone-900">
-                  إدارة المخزون - {selectedNursery === "main" ? "المشتل الرئيسي" : "مشتل على البير"}
-                </h1>
-                <p className="text-xs text-stone-500 mt-1">
-                  إضافة أصناف جديدة ومتابعة الرصيد المتاح والصادر لكل مشتل
-                </p>
-              </div>
-
-              {/* بحث الأصناف على الموبايل */}
-              <div className="md:hidden relative">
-                <Search
-                  size={16}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400"
-                />
-                <input
-                  type="text"
-                  placeholder="ابحث باسم الصنف..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-white border border-stone-200 rounded-2xl pr-10 pl-4 py-2.5 text-sm focus:outline-none focus:border-emerald-700"
-                />
-              </div>
-
-              <div className="bg-white rounded-2xl border border-stone-200 shadow-xs overflow-hidden">
-                <div className="p-4 md:p-5 border-b border-stone-200 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3">
-                  <h2 className="text-sm md:text-base font-bold text-stone-800">
-                    إضافة صنف جديد للمخزون
-                  </h2>
-
-                  <form
-                    onSubmit={handleAddStock}
-                    className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2"
-                  >
-                    <input
-                      type="text"
-                      placeholder="اسم الصنف (مثلاً: برحي)"
-                      value={newVariety}
-                      onChange={(e) => setNewVariety(e.target.value)}
-                      className="col-span-2 sm:w-auto border border-stone-300 rounded-xl px-3.5 py-2.5 text-sm"
-                      required
-                    />
-                    <select
-                      value={newType}
-                      onChange={(e) => setNewType(e.target.value as "بنت جورة" | "مجدوع")}
-                      className="border border-stone-300 rounded-xl px-3 py-2.5 text-sm bg-white"
-                    >
-                      <option value="بنت جورة">بنت جورة</option>
-                      <option value="مجدوع">مجدوع</option>
-                    </select>
-                    <input
-                      type="number"
-                      placeholder="العدد"
-                      value={newQty}
-                      onChange={(e) => setNewQty(e.target.value)}
-                      className="border border-stone-300 rounded-xl px-3.5 py-2.5 text-sm sm:w-28"
-                      required
-                    />
-                    <button
-                      type="submit"
-                      className="col-span-2 sm:col-span-1 bg-[#122b22] hover:bg-[#1b4033] active:scale-[0.98] text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
-                    >
-                      <Plus size={16} /> إضافة للمخزون
-                    </button>
-                  </form>
-                </div>
-
-                {/* عرض البطاقات الاحترافي للموبايل */}
-                <div className="md:hidden divide-y divide-stone-100">
-                  {currentInventory.length === 0 ? (
-                    <div className="p-6 text-center text-xs text-stone-400 font-semibold">
-                      لا توجد أصناف مطابقة في هذا المشتل
-                    </div>
-                  ) : (
-                    currentInventory.map((item) => (
-                      <div
-                        key={item.id}
-                        className="p-4 flex items-center justify-between gap-3"
-                      >
-                        <div className="space-y-1.5 min-w-0">
-                          <p className="font-extrabold text-stone-900 text-base truncate">
-                            {item.variety}
-                          </p>
-                          <span
-                            className={
-                              "inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold " +
-                              (item.type === "بنت جورة"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-amber-100 text-amber-800")
-                            }
-                          >
-                            {item.type}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-4 shrink-0 text-center">
-                          <div>
-                            <p className="text-[10px] text-stone-400 font-bold">متاح</p>
-                            <p className="text-lg font-black text-emerald-700">
-                              {item.available}
-                            </p>
-                          </div>
-                          <div className="h-8 w-px bg-stone-200" />
-                          <div>
-                            <p className="text-[10px] text-stone-400 font-bold">صادر</p>
-                            <p className="text-base font-bold text-stone-600">
-                              {item.issued}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* عرض الجدول للكمبيوتر */}
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-right border-collapse">
-                    <thead>
-                      <tr className="bg-stone-50 text-stone-600 text-xs uppercase border-b border-stone-200">
-                        <th className="p-4">الصنف</th>
-                        <th className="p-4">النوع</th>
-                        <th className="p-4">الرصيد المتاح</th>
-                        <th className="p-4">إجمالي الصادر</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-100 text-sm">
-                      {currentInventory.map((item) => (
-                        <tr key={item.id} className="hover:bg-stone-50">
-                          <td className="p-4 font-bold text-stone-800">{item.variety}</td>
-                          <td className="p-4">
-                            <span
-                              className={
-                                "px-3 py-1 rounded-full text-xs font-bold " +
-                                (item.type === "بنت جورة"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : "bg-amber-100 text-amber-800")
-                              }
-                            >
-                              {item.type}
-                            </span>
-                          </td>
-                          <td className="p-4 font-extrabold text-emerald-700">{item.available}</td>
-                          <td className="p-4 font-bold text-stone-600">{item.issued}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            <InventoryTab
+              selectedNursery={selectedNursery}
+              inventory={inventory}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              varieties={varieties}
+              types={types}
+              onAddVariety={handleAddVariety}
+              onAddType={handleAddType}
+              onAddItem={handleAddInventoryItem}
+              onUpdateItem={handleUpdateInventoryItem}
+              onDeleteItem={handleDeleteInventoryItem}
+            />
           )}
 
           {activeTab === "clients" && (
@@ -721,7 +614,7 @@ export default function BashayerDashboard() {
         </main>
       </div>
 
-      {/* 4. شريط التنقل السفلي الاحترافي للموبايل فقط */}
+      {/* شريط التنقل السفلي للموبايل */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#0d211a]/95 backdrop-blur-lg border-t border-emerald-900/70 px-1.5 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] print:hidden">
         <div className="grid grid-cols-5 gap-1">
           {menuItems.map((item) => {
