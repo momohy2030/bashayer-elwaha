@@ -7,17 +7,25 @@ import {
   updateProfile,
 } from "firebase/auth";
 import { auth, googleProvider } from "../lib/firebase";
-import { Mail, Lock, User, Loader2, AlertCircle } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  User,
+  Loader2,
+  AlertCircle,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 
 export default function AuthScreen() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // تسجيل الدخول أو إنشاء حساب بجوجل
   const handleGoogleAuth = async () => {
     setError("");
     setLoading(true);
@@ -37,7 +45,6 @@ export default function AuthScreen() {
     }
   };
 
-  // تسجيل الدخول أو إنشاء حساب بالإيميل وكلمة المرور
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -68,28 +75,26 @@ export default function AuthScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d211a] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-[#f4f6f5] rounded-3xl shadow-2xl overflow-hidden border border-emerald-800/30">
-        {/* الهيدر العلوي باللوجو الرسمي */}
-        <div className="bg-white px-6 py-6 text-center border-b border-stone-200">
-          <div className="w-28 h-28 mx-auto rounded-2xl overflow-hidden shadow-xs border border-stone-100 mb-3 bg-white flex items-center justify-center">
-            <img
-              src="/logo.png"
-              alt="بشاير الواحة للإستثمار الزراعي"
-              className="w-full h-full object-contain"
-            />
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-[#0d211a]">
+      {/* النصف الداكن: كارت تسجيل الدخول الأبيض */}
+      <div className="bg-[#0d211a] flex items-center justify-center p-6 md:p-10 order-1">
+        <div className="w-full max-w-md bg-[#f7f8f6] rounded-3xl shadow-2xl p-7 md:p-8 border border-emerald-900/20">
+          {/* اللوجو في أعلى الكارت */}
+          <div className="text-center mb-6">
+            <div className="w-24 h-24 mx-auto rounded-2xl bg-white p-1.5 shadow-xs border border-stone-200 flex items-center justify-center mb-3">
+              <img
+                src="/logo.png"
+                alt="بشاير الواحة للإستثمار الزراعي"
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <h2 className="text-2xl font-extrabold text-[#122b22]">
+              {mode === "signin" ? "تسجيل الدخول" : "إنشاء حساب جديد"}
+            </h2>
           </div>
-          <h1 className="text-xl font-extrabold text-[#122b22] tracking-wide">
-            بشاير الواحة للإستثمار الزراعي
-          </h1>
-          <p className="text-xs text-stone-500 mt-1">
-            نظام إدارة مشاتل النخيل والمخزون والخزينة
-          </p>
-        </div>
 
-        <div className="p-6 space-y-5">
-          {/* أزرار التبديل بين Sign In و Sign Up */}
-          <div className="grid grid-cols-2 bg-stone-200/80 p-1 rounded-xl">
+          {/* أزرار التبديل */}
+          <div className="grid grid-cols-2 bg-stone-200/80 p-1 rounded-xl mb-5">
             <button
               type="button"
               onClick={() => {
@@ -97,7 +102,7 @@ export default function AuthScreen() {
                 setError("");
               }}
               className={
-                "py-2 rounded-lg text-sm font-bold transition " +
+                "py-2 rounded-lg text-xs font-bold transition cursor-pointer " +
                 (mode === "signin"
                   ? "bg-white text-[#122b22] shadow-xs"
                   : "text-stone-600 hover:text-stone-900")
@@ -112,7 +117,7 @@ export default function AuthScreen() {
                 setError("");
               }}
               className={
-                "py-2 rounded-lg text-sm font-bold transition " +
+                "py-2 rounded-lg text-xs font-bold transition cursor-pointer " +
                 (mode === "signup"
                   ? "bg-white text-[#122b22] shadow-xs"
                   : "text-stone-600 hover:text-stone-900")
@@ -122,20 +127,19 @@ export default function AuthScreen() {
             </button>
           </div>
 
-          {/* رسالة الخطأ إن وجدت */}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold p-3 rounded-xl flex items-center gap-2">
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-xs font-bold p-3 rounded-xl flex items-center gap-2">
               <AlertCircle size={16} className="shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* زر جوجل الرئيسي */}
+          {/* زر جوجل */}
           <button
             type="button"
             disabled={loading}
             onClick={handleGoogleAuth}
-            className="w-full bg-white hover:bg-stone-50 border border-stone-300 text-stone-800 py-3 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-3 shadow-xs transition disabled:opacity-60 cursor-pointer"
+            className="w-full bg-white hover:bg-stone-50 border border-stone-300 text-stone-800 py-3 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-3 shadow-xs transition disabled:opacity-60 cursor-pointer mb-5"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -155,20 +159,8 @@ export default function AuthScreen() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            <span>
-              {mode === "signin"
-                ? "تسجيل الدخول باستخدام جوجل"
-                : "إنشاء حساب باستخدام جوجل"}
-            </span>
+            <span>الدخول باستخدام حساب جوجل</span>
           </button>
-
-          {/* فاصل */}
-          <div className="relative flex items-center justify-center">
-            <div className="border-t border-stone-300 w-full" />
-            <span className="bg-[#f4f6f5] px-3 text-xs text-stone-400 font-semibold absolute">
-              أو بالبريد الإلكتروني
-            </span>
-          </div>
 
           {/* نموذج الإيميل وكلمة المرور */}
           <form onSubmit={handleEmailAuth} className="space-y-3.5">
@@ -210,25 +202,64 @@ export default function AuthScreen() {
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400"
               />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="كلمة المرور"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-white border border-stone-300 rounded-xl pr-10 pl-3.5 py-2.5 text-sm focus:outline-none focus:border-emerald-700"
+                className="w-full bg-white border border-stone-300 rounded-xl pr-10 pl-10 py-2.5 text-sm focus:outline-none focus:border-emerald-700"
                 required
                 minLength={6}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#122b22] hover:bg-[#1b4033] text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-60 cursor-pointer"
+              className="w-full bg-[#0d211a] hover:bg-[#17382c] text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-60 cursor-pointer mt-2"
             >
               {loading && <Loader2 size={16} className="animate-spin" />}
-              <span>{mode === "signin" ? "دخول للنظام" : "إنشاء الحساب والدخول"}</span>
+              <span>{mode === "signin" ? "الدخول" : "إنشاء الحساب"}</span>
             </button>
           </form>
+        </div>
+      </div>
+
+      {/* النصف الفاتح: الهوية البصرية لبشاير الواحة */}
+      <div className="hidden lg:flex flex-col justify-between bg-[#f4f3ee] p-12 relative overflow-hidden order-2">
+        {/* اللوجو العلوي */}
+        <div className="flex justify-end">
+          <div className="w-24 h-24 rounded-2xl bg-white p-2 shadow-sm border border-stone-200/80 flex items-center justify-center">
+            <img
+              src="/logo.png"
+              alt="بشاير الواحة"
+              className="w-full h-full object-contain"
+            />
+          </div>
+        </div>
+
+        {/* العنوان الرئيسي الكبير في المنتصف */}
+        <div className="text-center my-auto space-y-4">
+          <h1 className="text-5xl font-black text-[#122b22] leading-tight">
+            بشاير الواحة
+          </h1>
+          <p className="text-3xl font-extrabold text-[#1f4738]">
+            للإستثمار الزراعي
+          </p>
+          <p className="text-sm text-stone-500 font-semibold pt-2">
+            النظام المتكامل لإدارة مشاتل النخيل، المخزون، العملاء، العمالة والخزينة
+          </p>
+        </div>
+
+        {/* تذييل بسيط */}
+        <div className="text-center text-xs text-stone-400 font-semibold">
+          © {new Date().getFullYear()} بشاير الواحة للإستثمار الزراعي
         </div>
       </div>
     </div>
