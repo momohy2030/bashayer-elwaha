@@ -31,6 +31,7 @@ import { LaborTab } from "./components/LaborAndTreasury";
 const INITIAL_VARIETIES = ["برحي", "مجدول", "سيوي (صعيدي)", "سكري"];
 const INITIAL_TYPES = ["بنت جورة", "مجدوع"];
 const INITIAL_TREASURY_STAFF = ["مصطفي موسي", "محمد حمادة"];
+const INITIAL_TREASURY_TARGETS = ["main", "well", "general"];
 
 const INITIAL_INVENTORY: InventoryItem[] = [
   { id: 1, nursery: "main", variety: "برحي", type: "بنت جورة", available: 150, issued: 0 },
@@ -60,6 +61,7 @@ export default function BashayerDashboard() {
   const [varieties, setVarieties] = useState<string[]>(INITIAL_VARIETIES);
   const [types, setTypes] = useState<string[]>(INITIAL_TYPES);
   const [treasuryStaff, setTreasuryStaff] = useState<string[]>(INITIAL_TREASURY_STAFF);
+  const [treasuryTargets, setTreasuryTargets] = useState<string[]>(INITIAL_TREASURY_TARGETS);
   const [inventory, setInventory] = useState<InventoryItem[]>(INITIAL_INVENTORY);
   const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -95,6 +97,7 @@ export default function BashayerDashboard() {
             varieties: data.varieties || INITIAL_VARIETIES,
             types: data.types || INITIAL_TYPES,
             treasuryStaff: data.treasuryStaff || INITIAL_TREASURY_STAFF,
+            treasuryTargets: data.treasuryTargets || INITIAL_TREASURY_TARGETS,
             inventory: data.inventory || INITIAL_INVENTORY,
             clients: data.clients || INITIAL_CLIENTS,
             shipments: data.shipments || [],
@@ -105,6 +108,7 @@ export default function BashayerDashboard() {
           setVarieties(payload.varieties);
           setTypes(payload.types);
           setTreasuryStaff(payload.treasuryStaff);
+          setTreasuryTargets(payload.treasuryTargets);
           setInventory(payload.inventory);
           setClients(payload.clients);
           setShipments(payload.shipments);
@@ -115,6 +119,7 @@ export default function BashayerDashboard() {
             varieties: INITIAL_VARIETIES,
             types: INITIAL_TYPES,
             treasuryStaff: INITIAL_TREASURY_STAFF,
+            treasuryTargets: INITIAL_TREASURY_TARGETS,
             inventory: INITIAL_INVENTORY,
             clients: INITIAL_CLIENTS,
             shipments: [],
@@ -144,6 +149,7 @@ export default function BashayerDashboard() {
       varieties,
       types,
       treasuryStaff,
+      treasuryTargets,
       inventory,
       clients,
       shipments,
@@ -158,7 +164,19 @@ export default function BashayerDashboard() {
     setDoc(doc(db, "bashayer_erp", "main_data"), currentPayload).catch((err) =>
       console.error("خطأ في الحفظ على Firebase:", err)
     );
-  }, [varieties, types, treasuryStaff, inventory, clients, shipments, workers, transactions, loaded, user]);
+  }, [
+    varieties,
+    types,
+    treasuryStaff,
+    treasuryTargets,
+    inventory,
+    clients,
+    shipments,
+    workers,
+    transactions,
+    loaded,
+    user,
+  ]);
 
   // إضافة صنف جديد للقائمة
   const handleAddVariety = (v: string) => {
@@ -178,6 +196,13 @@ export default function BashayerDashboard() {
   const handleAddTreasuryStaff = (name: string) => {
     if (!treasuryStaff.includes(name)) {
       setTreasuryStaff(treasuryStaff.concat([name]));
+    }
+  };
+
+  // إضافة جهة صرف جديدة لقائمة الخزينة
+  const handleAddTreasuryTarget = (target: string) => {
+    if (!treasuryTargets.includes(target)) {
+      setTreasuryTargets(treasuryTargets.concat([target]));
     }
   };
 
@@ -306,7 +331,7 @@ export default function BashayerDashboard() {
     alert("تم صرف " + total.toLocaleString("en-US") + " ج.م وتسجيلها في صادر الخزينة.");
   };
 
-  // تسجيل حركة خزينة يدوية بالتاريخ واسم المسؤول
+  // تسجيل حركة خزينة يدوية بالتاريخ واسم المسؤول وجهة الصرف
   const handleAddManualTransaction = (tx: Omit<TreasuryTransaction, "id">) => {
     const newTx: TreasuryTransaction = {
       id: Date.now(),
@@ -319,6 +344,18 @@ export default function BashayerDashboard() {
       handledBy: tx.handledBy,
     };
     setTransactions([newTx].concat(transactions));
+  };
+
+  // تعديل حركة خزينة
+  const handleUpdateTransaction = (updated: TreasuryTransaction) => {
+    setTransactions(
+      transactions.map((tx) => (tx.id === updated.id ? updated : tx))
+    );
+  };
+
+  // حذف حركة خزينة
+  const handleDeleteTransaction = (id: number) => {
+    setTransactions(transactions.filter((tx) => tx.id !== id));
   };
 
   // ترتيب التبويبات: الخزينة مباشرة بعد لوحة التحكم
@@ -560,15 +597,19 @@ export default function BashayerDashboard() {
                   الخزينة (وارد وصادر)
                 </h1>
                 <p className="text-xs text-stone-500 mt-1">
-                  متابعة التدفقات النقدية، تحديد القائم بالصرف أو التحصيل، وتسجيل الحركات بالتاريخ
+                  متابعة التدفقات النقدية، فلترة حسب المسؤول والشهور، وفصل الوارد عن الصادر
                 </p>
               </div>
               <TreasuryTab
                 selectedNursery={selectedNursery}
                 transactions={transactions}
                 staffList={treasuryStaff}
+                targetList={treasuryTargets}
                 onAddStaff={handleAddTreasuryStaff}
+                onAddTarget={handleAddTreasuryTarget}
                 onAddManualTransaction={handleAddManualTransaction}
+                onUpdateTransaction={handleUpdateTransaction}
+                onDeleteTransaction={handleDeleteTransaction}
               />
             </div>
           )}

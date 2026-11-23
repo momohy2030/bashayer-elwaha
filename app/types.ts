@@ -45,6 +45,6 @@ export interface TreasuryTransaction {
   category: string;
   amount: number;
   description: string;
-  nursery: NurseryId | "general";
+  nursery: string;
   handledBy?: string;
 }
